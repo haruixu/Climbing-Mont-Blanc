@@ -57,10 +57,11 @@ PPMImage *convertToPPPMImage(AccurateImage *imageIn) {
 void blurIteration(AccurateImage *imageOut, AccurateImage *imageIn,
                    int colourType, int size) {
 
-  // Iterate over each pixel
-  for (int senterX = 0; senterX < imageIn->x; senterX++) {
+  int numberOfValuesInEachRow = imageIn->x;
 
-    for (int senterY = 0; senterY < imageIn->y; senterY++) {
+  // Iterate over each pixel
+  for (int senterY = 0; senterY < imageIn->y; senterY++) {
+    for (int senterX = 0; senterX < imageIn->x; senterX++) {
 
       // For each pixel we compute the magic number
       double sum = 0;
@@ -82,7 +83,6 @@ void blurIteration(AccurateImage *imageOut, AccurateImage *imageIn,
             continue;
 
           // Now we can begin
-          int numberOfValuesInEachRow = imageIn->x;
           int offsetOfThePixel =
               (numberOfValuesInEachRow * currentY + currentX);
           if (colourType == 0)
@@ -101,7 +101,6 @@ void blurIteration(AccurateImage *imageOut, AccurateImage *imageIn,
       double value = sum / countIncluded;
 
       // Update the output image
-      int numberOfValuesInEachRow = imageOut->x; // R, G and B
       int offsetOfThePixel = (numberOfValuesInEachRow * senterY + senterX);
       if (colourType == 0)
         imageOut->data[offsetOfThePixel].red = value;
