@@ -11,9 +11,9 @@
 
 typedef struct {
   int x, y;
-  double *red;
-  double *green;
-  double *blue;
+  float *red;
+  float *green;
+  float *blue;
 } AccurateImage;
 
 // Convert ppm to high precision format.
@@ -23,14 +23,15 @@ AccurateImage *convertToAccurateImage(PPMImage *image) {
   imageAccurate = (AccurateImage *)malloc(sizeof(AccurateImage));
 
   int img_size = image->x * image->y;
-  imageAccurate->red = (double *)malloc(img_size * sizeof(double));
-  imageAccurate->green = (double *)malloc(img_size * sizeof(double));
-  imageAccurate->blue = (double *)malloc(img_size * sizeof(double));
+  imageAccurate->red = malloc(img_size * sizeof(float));
+  imageAccurate->green = malloc(img_size * sizeof(float));
+  imageAccurate->blue = malloc(img_size * sizeof(float));
 
+#pragma omp parallel for
   for (int i = 0; i < image->x * image->y; i++) {
-    imageAccurate->red[i] = (double)image->data[i].red;
-    imageAccurate->green[i] = (double)image->data[i].green;
-    imageAccurate->blue[i] = (double)image->data[i].blue;
+    imageAccurate->red[i] = image->data[i].red;
+    imageAccurate->green[i] = image->data[i].green;
+    imageAccurate->blue[i] = image->data[i].blue;
   }
   imageAccurate->x = image->x;
   imageAccurate->y = image->y;
@@ -39,21 +40,23 @@ AccurateImage *convertToAccurateImage(PPMImage *image) {
 }
 
 // blur one color channel
-void blurIteration(double *colourOut, double *colourIn, int width, int height,
+void blurIteration(float *colourOut, float *colourIn, int width, int height,
                    int size) {
 
   int numberOfValuesInEachRow = width;
 
-  // Iterate over each pixel
+// Iterate over each pixel
+//
+#pragma omp parallel for
   for (int senterY = 0; senterY < height; senterY++) {
     for (int senterX = 0; senterX < width; senterX++) {
 
       // For each pixel we compute the magic number
       double sum = 0;
       int countIncluded = 0;
-      for (int x = -size; x <= size; x++) {
+      for (int y = -size; y <= size; y++) {
+        for (int x = -size; x <= size; x++) {
 
-        for (int y = -size; y <= size; y++) {
           int currentX = senterX + x;
           int currentY = senterY + y;
 
@@ -97,7 +100,7 @@ void runBlur(AccurateImage *in, AccurateImage *out, int size, int iterations) {
     blurIteration(out->blue, in->blue, w, h, size);
 
     // swap pointers
-    double *tmp;
+    float *tmp;
     tmp = in->red;
     in->red = out->red;
     out->red = tmp;
@@ -118,6 +121,7 @@ PPMImage *imageDifference(AccurateImage *a, AccurateImage *b) {
   out->y = a->y;
   out->data = malloc(n * sizeof(PPMPixel));
 
+#pragma omp parallel for
   for (int i = 0; i < n; i++) {
     double vals[3] = {b->red[i] - a->red[i], b->green[i] - a->green[i],
                       b->blue[i] - a->blue[i]};
@@ -156,6 +160,7 @@ int main(int argc, char **argv) {
     image = readStreamPPM(stdin);
   }
 
+  omp_set_num_threads(4);
   // Tiny
   AccurateImage *tiny1 = convertToAccurateImage(image);
   AccurateImage *tiny2 = convertToAccurateImage(image);
