@@ -110,65 +110,38 @@ void runBlur(AccurateImage *in, AccurateImage *out, int size, int iterations) {
   }
 }
 
-// TODO: pass in colour array instead
-// Perform the final step, and return it as ppm.
-PPMImage *imageDifference(AccurateImage *imageInSmall,
-                          AccurateImage *imageInLarge) {
-  PPMImage *imageOut;
-  imageOut = (PPMImage *)malloc(sizeof(PPMImage));
-  imageOut->data =
-      (PPMPixel *)malloc(imageInSmall->x * imageInSmall->y * sizeof(PPMPixel));
+PPMImage *imageDifference(AccurateImage *a, AccurateImage *b) {
+  int n = a->x * a->y;
 
-  imageOut->x = imageInSmall->x;
-  imageOut->y = imageInSmall->y;
+  PPMImage *out = malloc(sizeof(PPMImage));
+  out->x = a->x;
+  out->y = a->y;
+  out->data = malloc(n * sizeof(PPMPixel));
 
-  for (int i = 0; i < imageInSmall->x * imageInSmall->y; i++) {
-    double value = (imageInLarge->red[i] - imageInSmall->red[i]);
-    if (value > 255)
-      imageOut->data[i].red = 255;
-    else if (value < -1.0) {
-      value = 257.0 + value;
+  for (int i = 0; i < n; i++) {
+    double vals[3] = {b->red[i] - a->red[i], b->green[i] - a->green[i],
+                      b->blue[i] - a->blue[i]};
+
+    unsigned char *channels[3] = {&out->data[i].red, &out->data[i].green,
+                                  &out->data[i].blue};
+
+    for (int c = 0; c < 3; c++) {
+      double value = vals[c];
+
       if (value > 255)
-        imageOut->data[i].red = 255;
-      else
-        imageOut->data[i].red = floor(value);
-    } else if (value > -1.0 && value < 0.0) {
-      imageOut->data[i].red = 0;
-    } else {
-      imageOut->data[i].red = floor(value);
-    }
-
-    value = (imageInLarge->green[i] - imageInSmall->green[i]);
-    if (value > 255)
-      imageOut->data[i].green = 255;
-    else if (value < -1.0) {
-      value = 257.0 + value;
-      if (value > 255)
-        imageOut->data[i].green = 255;
-      else
-        imageOut->data[i].green = floor(value);
-    } else if (value > -1.0 && value < 0.0) {
-      imageOut->data[i].green = 0;
-    } else {
-      imageOut->data[i].green = floor(value);
-    }
-
-    value = (imageInLarge->blue[i] - imageInSmall->blue[i]);
-    if (value > 255)
-      imageOut->data[i].blue = 255;
-    else if (value < -1.0) {
-      value = 257.0 + value;
-      if (value > 255)
-        imageOut->data[i].blue = 255;
-      else
-        imageOut->data[i].blue = floor(value);
-    } else if (value > -1.0 && value < 0.0) {
-      imageOut->data[i].blue = 0;
-    } else {
-      imageOut->data[i].blue = floor(value);
+        *channels[c] = 255;
+      else if (value < -1.0) {
+        value = 257.0 + value;
+        *channels[c] = (value > 255) ? 255 : (unsigned char)floor(value);
+      } else if (value < 0.0) {
+        *channels[c] = 0;
+      } else {
+        *channels[c] = (unsigned char)floor(value);
+      }
     }
   }
-  return imageOut;
+
+  return out;
 }
 
 int main(int argc, char **argv) {
