@@ -39,56 +39,58 @@ AccurateImage *convertToAccurateImage(PPMImage *image) {
   return imageAccurate;
 }
 
-// blur one color channel
-void blurIteration(float *colourOut, float *colourIn, int width, int height,
-                   int size) {
-
-  int numberOfValuesInEachRow = width;
-
-// Iterate over each pixel
-//
+void blurHorizontal(float *out, float *in, int w, int h, int r) {
 #pragma omp parallel for
-  for (int senterY = 0; senterY < height; senterY++) {
-    for (int senterX = 0; senterX < width; senterX++) {
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
 
-      // For each pixel we compute the magic number
-      double sum = 0;
-      int countIncluded = 0;
-      for (int y = -size; y <= size; y++) {
-        for (int x = -size; x <= size; x++) {
+      float sum = 0;
+      int count = 0;
 
-          int currentX = senterX + x;
-          int currentY = senterY + y;
+      for (int dx = -r; dx <= r; dx++) {
+        int xx = x + dx;
+        if (xx < 0 || xx >= w)
+          continue;
 
-          if (currentX < 0)
-            continue;
-          if (currentX >= width)
-            continue;
-          if (currentY < 0)
-            continue;
-          if (currentY >= height)
-            continue;
-
-          // Now we can begin
-          int offsetOfThePixel =
-              (numberOfValuesInEachRow * currentY + currentX);
-          sum += colourIn[offsetOfThePixel];
-
-          // Keep track of how many values we have included
-          countIncluded++;
-        }
+        sum += in[y * w + xx];
+        count++;
       }
 
-      // Now we compute the final value
-      double value = sum / countIncluded;
-
-      // Update the output image
-      int offsetOfThePixel = (numberOfValuesInEachRow * senterY + senterX);
-      colourOut[offsetOfThePixel] = value;
+      out[y * w + x] = sum / count;
     }
   }
 }
 
+void blurVertical(float *out, float *in, int w, int h, int r) {
+#pragma omp parallel for
+  for (int y = 0; y < h; y++) {
+    for (int x = 0; x < w; x++) {
+
+      float sum = 0;
+      int count = 0;
+
+      for (int dy = -r; dy <= r; dy++) {
+        int yy = y + dy;
+        if (yy < 0 || yy >= h)
+          continue;
+
+        sum += in[yy * w + x];
+        count++;
+      }
+
+      out[y * w + x] = sum / count;
+    }
+  }
+}
+// blur one color channel
+void blurIteration(float *out, float *in, int w, int h, int r) {
+  float *temp = malloc(w * h * sizeof(float));
+
+  blurHorizontal(temp, in, w, h, r);
+  blurVertical(out, temp, w, h, r);
+
+  free(temp);
+}
 void runBlur(AccurateImage *in, AccurateImage *out, int size, int iterations) {
   int w = in->x;
   int h = in->y;
